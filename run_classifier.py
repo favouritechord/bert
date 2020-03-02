@@ -123,6 +123,13 @@ flags.DEFINE_integer(
     "num_tpu_cores", 8,
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
 
+flags.DEFINE_bool(
+    "do_export", False,
+    "Whether to save the model as pb graph.")
+
+flags.DEFINE_string(
+    "export_dir", None,
+    "The export directory where the saved model will be written.")
 
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
@@ -1011,6 +1018,22 @@ def main(_):
         num_written_lines += 1
     assert num_written_lines == num_actual_predict_examples
 
+  if FLAGS.do_export:
+    estimator._export_to_tpu = False
+    estimator.export_savedmodel(FLAGS.export_dir, serving_input_fn)
+
+def serving_input_fn():
+    label_ids = tf.placeholder(tf.int32, [None], name='label_ids')
+    input_ids = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='input_ids')
+    input_mask = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='input_mask')
+    segment_ids = tf.placeholder(tf.int32, [None, FLAGS.max_seq_length], name='segment_ids')
+    input_fn = tf.estimator.export.build_raw_serving_input_receiver_fn({
+        'label_ids': label_ids,
+        'input_ids': input_ids,
+        'input_mask': input_mask,
+        'segment_ids': segment_ids,
+    })()
+    return input_fn
 
 if __name__ == "__main__":
   flags.mark_flag_as_required("data_dir")
